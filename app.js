@@ -376,10 +376,6 @@ function insertFormat(type) {
       insert = '\n| Column 1 | Column 2 | Column 3 |\n| --- | --- | --- |\n| Cell | Cell | Cell |\n| Cell | Cell | Cell |\n';
       cursorOffset = insert.length;
       break;
-    case 'blockquote':
-      insert = '\n> ' + (sel || 'Quoted text') + '\n';
-      cursorOffset = insert.length;
-      break;
     case 'bullet':
       insert = '\n- ' + (sel || 'Item') + '\n';
       cursorOffset = insert.length;
@@ -534,25 +530,31 @@ function isTableSeparatorLine(s) {
   return /^\|[-| :]+\|/.test(s);
 }
 
-function renderTable(lines) {
-  // Filter out separator lines (|---|---|)
-  const rows = lines.filter(function(l) {
-    return l.trim() && !/^\|[\s\-:|]+\|$/.test(l.trim().replace(/[^|\-: ]/g, ''));
+// A separator row has cells containing only dashes and optional alignment colons.
+function isSeparatorRow(line) {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith('|')) return false;
+  const cells = trimmed.split('|').slice(1, -1);
+  return cells.length > 0 && cells.every(function(c) {
+    return /^\s*:?-+:?\s*$/.test(c);
   });
+}
 
-  if (!rows.length) return '';
-
-  // Detect if second original line is separator → first row is header
+function renderTable(lines) {
   const origLines = lines.filter(function(l) { return l.trim(); });
-  const hasSeparator = origLines.length > 1 && /^\|[\s\-:|]+\|/.test(
-    origLines[1].trim().replace(/[^|\-: ]/g, '')
-  );
+  if (!origLines.length) return '';
+
+  // Second line is a separator → first row is a header
+  const hasSeparator = origLines.length > 1 && isSeparatorRow(origLines[1]);
+
+  // Exclude separator lines from rendered rows
+  const rows = origLines.filter(function(l) { return !isSeparatorRow(l); });
+  if (!rows.length) return '';
 
   let html = '<table>';
   rows.forEach(function(row, idx) {
-    const cells = row.trim().split('|').filter(function(c, ci) {
-      return ci > 0 && ci < row.trim().split('|').length - 1;
-    });
+    const parts = row.trim().split('|');
+    const cells = parts.slice(1, parts.length - 1);
     if (idx === 0 && hasSeparator) {
       html += '<thead><tr>';
       cells.forEach(function(c) { html += '<th>' + renderInline(c.trim()) + '</th>'; });
