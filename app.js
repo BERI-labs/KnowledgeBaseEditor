@@ -8,6 +8,8 @@ let sections = [];          // [{id, original, current, title}]
 let currentIndex = 0;
 let filename = '';
 let originalFullMarkdown = '';
+let renderedLo = 0;         // Index of the first card currently in the DOM
+let isNavigating = false;   // Block nav clicks during slide transition
 
 const STORAGE_KEY      = 'beri_habs_md_cache';
 const STORAGE_FILENAME = 'beri_habs_filename';
@@ -70,8 +72,12 @@ function readFile(file) {
   reader.onload = function(e) {
     filename = file.name;
     const md = e.target.result;
-    localStorage.setItem(STORAGE_KEY, md);
-    localStorage.setItem(STORAGE_FILENAME, filename);
+    try {
+      localStorage.setItem(STORAGE_KEY, md);
+      localStorage.setItem(STORAGE_FILENAME, filename);
+    } catch (err) {
+      showToast('File too large to save locally — changes won\'t persist between sessions.', 'warn');
+    }
     loadMarkdown(md);
   };
   reader.readAsText(file);
@@ -145,80 +151,172 @@ function extractSectionTitle(text) {
 }
 
 // ── RENDER EDITOR ──────────────────────────────────────────
+// Only renders a ±1 window around currentIndex so large files load instantly.
 function renderEditor() {
   const track = document.getElementById('flashcard-track');
   track.innerHTML = '';
 
-  sections.forEach(function(sec, idx) {
-    const card = document.createElement('div');
-    card.className = 'flashcard';
-    card.id = 'card_' + idx;
+  const lo = Math.max(0, currentIndex - 1);
+  const hi = Math.min(sections.length - 1, currentIndex + 1);
+  renderedLo = lo;
 
-    const panes = document.createElement('div');
-    panes.className = 'flashcard-panes';
+  for (let i = lo; i <= hi; i++) {
+    buildAndAppendCard(i);
+  }
 
-    // Editor pane
-    const editorPane = document.createElement('div');
-    editorPane.className = 'pane pane-editor';
+  track.style.transition = 'none';
+  track.style.transform = 'translateX(-' + ((currentIndex - renderedLo) * 100) + '%)';
+}
 
-    const editorLabel = document.createElement('div');
-    editorLabel.className = 'pane-label';
-    editorLabel.textContent = 'Markdown';
+function buildAndAppendCard(idx) {
+  if (idx < 0 || idx >= sections.length) return null;
+  const existing = document.getElementById('card_' + idx);
+  if (existing) return existing;
 
-    const textarea = document.createElement('textarea');
-    textarea.className = 'pane-editor-textarea';
-    textarea.id = 'textarea_' + idx;
-    textarea.value = sec.current;
-    textarea.spellcheck = true;
+  const track = document.getElementById('flashcard-track');
+  const sec = sections[idx];
 
-    const previewPane = document.createElement('div');
-    previewPane.className = 'pane pane-preview';
-    previewPane.id = 'preview_' + idx;
-    previewPane.innerHTML = renderMarkdown(sec.current);
+  const card = document.createElement('div');
+  card.className = 'flashcard';
+  card.id = 'card_' + idx;
+  card.dataset.idx = String(idx);
 
-    textarea.addEventListener('input', function() {
-      sections[idx].current = textarea.value;
-      sections[idx].title = extractSectionTitle(textarea.value);
+  const panes = document.createElement('div');
+  panes.className = 'flashcard-panes';
+
+  // Editor pane
+  const editorPane = document.createElement('div');
+  editorPane.className = 'pane pane-editor';
+
+  const editorLabel = document.createElement('div');
+  editorLabel.className = 'pane-label';
+  editorLabel.textContent = 'Markdown';
+
+  const textarea = document.createElement('textarea');
+  textarea.className = 'pane-editor-textarea';
+  textarea.id = 'textarea_' + idx;
+  textarea.value = sec.current;
+  textarea.spellcheck = true;
+
+  const previewPane = document.createElement('div');
+  previewPane.className = 'pane pane-preview';
+  previewPane.id = 'preview_' + idx;
+  previewPane.innerHTML = renderMarkdown(sec.current);
+
+  // Debounced preview update — avoids re-rendering on every keystroke
+  let previewTimer;
+  textarea.addEventListener('input', function() {
+    sections[idx].current = textarea.value;
+    sections[idx].title = extractSectionTitle(textarea.value);
+    if (idx === currentIndex) updateHeader();
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(function() {
       previewPane.innerHTML = renderMarkdown(textarea.value);
-      if (idx === currentIndex) updateHeader();
-    });
-
-    editorPane.appendChild(editorLabel);
-    editorPane.appendChild(textarea);
-
-    const previewLabel = document.createElement('div');
-    previewLabel.className = 'pane-label';
-    previewLabel.textContent = 'Preview';
-
-    const previewWrapper = document.createElement('div');
-    previewWrapper.className = 'pane';
-    previewWrapper.appendChild(previewLabel);
-    previewWrapper.appendChild(previewPane);
-
-    panes.appendChild(editorPane);
-    panes.appendChild(previewWrapper);
-    card.appendChild(panes);
-    track.appendChild(card);
+    }, 150);
   });
 
-  applyTrackPosition(false);
+  editorPane.appendChild(editorLabel);
+  editorPane.appendChild(textarea);
+
+  const previewLabel = document.createElement('div');
+  previewLabel.className = 'pane-label';
+  previewLabel.textContent = 'Preview';
+
+  const previewWrapper = document.createElement('div');
+  previewWrapper.className = 'pane';
+  previewWrapper.appendChild(previewLabel);
+  previewWrapper.appendChild(previewPane);
+
+  panes.appendChild(editorPane);
+  panes.appendChild(previewWrapper);
+  card.appendChild(panes);
+
+  // Insert in sorted order so the DOM always mirrors section order
+  let inserted = false;
+  for (const sibling of track.children) {
+    if (parseInt(sibling.dataset.idx) > idx) {
+      track.insertBefore(card, sibling);
+      inserted = true;
+      break;
+    }
+  }
+  if (!inserted) track.appendChild(card);
+
+  return card;
 }
 
 // ── NAVIGATION ─────────────────────────────────────────────
 function navigate(dir) {
+  if (isNavigating) return;
   const next = currentIndex + dir;
   if (next < 0 || next >= sections.length) return;
-  currentIndex = next;
-  applyTrackPosition(true);
+
+  const track = document.getElementById('flashcard-track');
+  isNavigating = true;
+
+  if (dir > 0) {
+    // Going right: ensure the target card exists in the DOM before sliding
+    buildAndAppendCard(next);
+    currentIndex = next;
+    track.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+    track.style.transform = 'translateX(-' + ((currentIndex - renderedLo) * 100) + '%)';
+  } else {
+    // Going left: if the target card isn't rendered yet, prepend it and
+    // snap the track position (invisible) before animating forward.
+    if (!document.getElementById('card_' + next)) {
+      buildAndAppendCard(next);
+      renderedLo = next;
+      track.style.transition = 'none';
+      track.style.transform = 'translateX(-' + ((currentIndex - renderedLo) * 100) + '%)';
+      track.getBoundingClientRect(); // force reflow so snap takes effect before transition
+    }
+    currentIndex = next;
+    track.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+    track.style.transform = 'translateX(-' + ((currentIndex - renderedLo) * 100) + '%)';
+  }
+
   updateHeader();
   updateNavButtons();
+
+  // After the slide completes, trim the DOM back to the ±1 window
+  let settled = false;
+  function settle() {
+    if (settled) return;
+    settled = true;
+    track.removeEventListener('transitionend', settle);
+    cleanupWindow();
+    isNavigating = false;
+  }
+  track.addEventListener('transitionend', settle);
+  setTimeout(settle, 500); // fallback if transitionend doesn't fire
 }
 
-function applyTrackPosition(animate) {
+function cleanupWindow() {
   const track = document.getElementById('flashcard-track');
-  if (!animate) track.style.transition = 'none';
-  else track.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-  track.style.transform = 'translateX(-' + (currentIndex * 100) + '%)';
+  const lo = Math.max(0, currentIndex - 1);
+  const hi = Math.min(sections.length - 1, currentIndex + 1);
+
+  // Remove cards that have drifted outside the ±1 window
+  const toRemove = [];
+  for (const card of track.children) {
+    const idx = parseInt(card.dataset.idx);
+    if (idx < lo || idx > hi) toRemove.push(card);
+  }
+  toRemove.forEach(function(c) { track.removeChild(c); });
+
+  // Fill any gaps within the window (e.g. the neighbour in the new direction)
+  for (let i = lo; i <= hi; i++) {
+    buildAndAppendCard(i);
+  }
+
+  // Recalculate renderedLo after DOM changes
+  if (track.children.length > 0) {
+    renderedLo = parseInt(track.children[0].dataset.idx);
+  }
+
+  // Silently reposition the track — the visible card doesn't change
+  track.style.transition = 'none';
+  track.style.transform = 'translateX(-' + ((currentIndex - renderedLo) * 100) + '%)';
 }
 
 function updateHeader() {
@@ -319,9 +417,8 @@ function addNewSection() {
     title: 'New Section'
   };
   sections.push(newSec);
+  currentIndex = sections.length - 1; // set before renderEditor so window is correct
   renderEditor();
-  currentIndex = sections.length - 1;
-  applyTrackPosition(true);
   updateHeader();
   updateNavButtons();
   showToast('New section added', 'info');
@@ -587,7 +684,6 @@ function discardAllChanges() {
   if (!confirm('Discard all changes and revert to the original file?')) return;
   sections.forEach(function(s) { s.current = s.original; });
   renderEditor();
-  applyTrackPosition(false);
   updateHeader();
   closeReview();
   showToast('All changes discarded.', 'warn');
@@ -595,7 +691,11 @@ function discardAllChanges() {
 
 function confirmSave() {
   const md = sectionsToMarkdown();
-  localStorage.setItem(STORAGE_KEY, md);
+  try {
+    localStorage.setItem(STORAGE_KEY, md);
+  } catch (err) {
+    showToast('Could not save — storage quota exceeded.', 'warn');
+  }
   closeReview();
   showToast('Saved to browser ✓', 'amber');
 }
