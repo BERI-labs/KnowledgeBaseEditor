@@ -40,6 +40,7 @@ const STORAGE_FILENAME = 'beri_habs_filename';
   setupDropZone();
   setupFileInput();
   setupKeyboard();
+  setupToolbar();
 })();
 
 // ── FILE HANDLING ──────────────────────────────────────────
@@ -202,17 +203,20 @@ function buildAndAppendCard(idx) {
   previewPane.className = 'pane pane-preview';
   previewPane.id = 'preview_' + idx;
   previewPane.innerHTML = renderMarkdown(sec.current);
+  previewPane.contentEditable = 'true';
+  previewPane.spellcheck = true;
 
-  // Debounced preview update — avoids re-rendering on every keystroke
-  let previewTimer;
-  textarea.addEventListener('input', function() {
-    sections[idx].current = textarea.value;
-    sections[idx].title = extractSectionTitle(textarea.value);
-    if (idx === currentIndex) updateHeader();
-    clearTimeout(previewTimer);
-    previewTimer = setTimeout(function() {
-      previewPane.innerHTML = renderMarkdown(textarea.value);
-    }, 150);
+  // Sync preview HTML → markdown as the user types
+  let mdSyncTimer;
+  previewPane.addEventListener('input', function() {
+    clearTimeout(mdSyncTimer);
+    mdSyncTimer = setTimeout(function() {
+      const md = htmlToMarkdown(previewPane.innerHTML);
+      sections[idx].current = md;
+      sections[idx].title = extractSectionTitle(md);
+      textarea.value = md;
+      if (idx === currentIndex) updateHeader();
+    }, 300);
   });
 
   editorPane.appendChild(editorLabel);
@@ -328,75 +332,90 @@ function updateNavButtons() {
 
 function setupKeyboard() {
   document.addEventListener('keydown', function(e) {
-    const tag = document.activeElement.tagName.toLowerCase();
-    if (tag === 'textarea' || tag === 'input') return;
+    const el = document.activeElement;
+    if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT' || el.isContentEditable) return;
     if (e.key === 'ArrowLeft')  navigate(-1);
     if (e.key === 'ArrowRight') navigate(1);
   });
 }
 
+function setupToolbar() {
+  // Prevent toolbar button clicks from stealing focus away from the preview,
+  // so the cursor position is preserved when applying formatting.
+  document.querySelector('.editor-toolbar').addEventListener('mousedown', function(e) {
+    if (e.target.closest('button')) e.preventDefault();
+  });
+}
+
 // ── TOOLBAR ACTIONS ────────────────────────────────────────
 function insertFormat(type) {
+  const preview = document.getElementById('preview_' + currentIndex);
   const ta = document.getElementById('textarea_' + currentIndex);
-  if (!ta) return;
-  ta.focus();
+  if (!preview) return;
 
-  const start = ta.selectionStart;
-  const end   = ta.selectionEnd;
-  const sel   = ta.value.substring(start, end);
-  const before = ta.value.substring(0, start);
-  const after  = ta.value.substring(end);
-
-  let insert = '';
-  let cursorOffset = 0;
+  preview.focus();
 
   switch (type) {
     case 'bold':
-      insert = '**' + (sel || 'bold text') + '**';
-      cursorOffset = sel ? insert.length : 2;
+      document.execCommand('bold', false, null);
       break;
     case 'italic':
-      insert = '*' + (sel || 'italic text') + '*';
-      cursorOffset = sel ? insert.length : 1;
+      document.execCommand('italic', false, null);
       break;
     case 'h2':
-      insert = '\n## ' + (sel || 'Section Heading') + '\n';
-      cursorOffset = insert.length;
+      insertHtmlAtCursor('<h2>Section Heading</h2>');
       break;
     case 'h3':
-      insert = '\n### ' + (sel || 'Sub-heading') + '\n';
-      cursorOffset = insert.length;
+      insertHtmlAtCursor('<h3>Sub-heading</h3>');
       break;
     case 'table':
-      insert = '\n| Column 1 | Column 2 | Column 3 |\n| --- | --- | --- |\n| Cell | Cell | Cell |\n| Cell | Cell | Cell |\n';
-      cursorOffset = insert.length;
+      insertHtmlAtCursor('<table><thead><tr><th>Column 1</th><th>Column 2</th><th>Column 3</th></tr></thead><tbody><tr><td>Cell</td><td>Cell</td><td>Cell</td></tr><tr><td>Cell</td><td>Cell</td><td>Cell</td></tr></tbody></table>');
       break;
     case 'bullet':
-      insert = '\n- ' + (sel || 'Item') + '\n';
-      cursorOffset = insert.length;
+      insertHtmlAtCursor('<ul><li>Item</li></ul>');
       break;
     case 'numbered':
-      insert = '\n1. ' + (sel || 'Item') + '\n';
-      cursorOffset = insert.length;
+      insertHtmlAtCursor('<ol><li>Item</li></ol>');
       break;
     case 'source':
-      insert = '\n**Source:** https://www.habselstree.org.uk/girls/\n';
-      cursorOffset = insert.length;
+      insertHtmlAtCursor('<div class="source-line"><strong>Source:</strong> https://www.habselstree.org.uk/girls/</div>');
       break;
     case 'divider':
-      insert = '\n---\n';
-      cursorOffset = insert.length;
+      insertHtmlAtCursor('<hr>');
       break;
   }
 
-  ta.value = before + insert + after;
-  ta.selectionStart = ta.selectionEnd = start + cursorOffset;
-
-  sections[currentIndex].current = ta.value;
-  sections[currentIndex].title = extractSectionTitle(ta.value);
-  document.getElementById('preview_' + currentIndex).innerHTML = renderMarkdown(ta.value);
+  // Sync preview HTML → markdown after any toolbar action
+  const md = htmlToMarkdown(preview.innerHTML);
+  sections[currentIndex].current = md;
+  sections[currentIndex].title = extractSectionTitle(md);
+  if (ta) ta.value = md;
   updateHeader();
-  ta.blur();
+}
+
+function insertHtmlAtCursor(html) {
+  // execCommand('insertHTML') is the most reliable cross-browser way to insert
+  // HTML at the current cursor position in a contenteditable element.
+  if (!document.execCommand('insertHTML', false, html)) {
+    // Fallback: Range API
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    const frag = document.createDocumentFragment();
+    let lastNode;
+    while (tmp.firstChild) { lastNode = frag.appendChild(tmp.firstChild); }
+    range.insertNode(frag);
+    if (lastNode) {
+      const r = document.createRange();
+      r.setStartAfter(lastNode);
+      r.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(r);
+    }
+  }
 }
 
 // ── ADD NEW SECTION ────────────────────────────────────────
@@ -414,6 +433,137 @@ function addNewSection() {
   updateHeader();
   updateNavButtons();
   showToast('New section added', 'info');
+}
+
+// ── HTML → MARKDOWN (for contenteditable sync) ─────────────
+// Reverses the specific HTML produced by renderMarkdown so the hidden
+// markdown source stays in sync as the user edits the preview directly.
+function htmlToMarkdown(html) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  const lines = [];
+
+  tmp.childNodes.forEach(function(node) {
+    if (node.nodeType === 3) {
+      const t = node.textContent.replace(/\n/g, ' ').trim();
+      if (t) lines.push(t);
+      return;
+    }
+    if (node.nodeType !== 1) return;
+    const tag = node.tagName.toLowerCase();
+
+    switch (tag) {
+      case 'h2':
+        lines.push('## ' + nodeInlineMd(node));
+        break;
+      case 'h3':
+        lines.push('### ' + nodeInlineMd(node));
+        break;
+      case 'p': {
+        const t = nodeInlineMd(node);
+        if (t.trim()) lines.push(t);
+        break;
+      }
+      case 'ul':
+        node.querySelectorAll(':scope > li').forEach(function(li) {
+          lines.push('- ' + nodeInlineMd(li));
+        });
+        break;
+      case 'ol': {
+        let n = 1;
+        node.querySelectorAll(':scope > li').forEach(function(li) {
+          lines.push(n + '. ' + nodeInlineMd(li));
+          n++;
+        });
+        break;
+      }
+      case 'blockquote': {
+        const bqP = node.querySelector('p');
+        lines.push('> ' + (bqP ? nodeInlineMd(bqP) : nodeInlineMd(node)));
+        break;
+      }
+      case 'hr':
+        lines.push('---');
+        break;
+      case 'table':
+        tableToMdLines(node).forEach(function(l) { lines.push(l); });
+        break;
+      case 'div': {
+        if (node.classList.contains('source-line')) {
+          lines.push(nodeInlineMd(node));
+        } else {
+          // Browser-generated div from Enter key — treat as paragraph
+          const t = nodeInlineMd(node);
+          if (t.trim()) lines.push(t);
+        }
+        break;
+      }
+      default: {
+        const t = nodeInlineMd(node);
+        if (t.trim()) lines.push(t);
+      }
+    }
+  });
+
+  return lines.join('\n');
+}
+
+function nodeInlineMd(node) {
+  let md = '';
+  node.childNodes.forEach(function(child) {
+    if (child.nodeType === 3) {
+      md += child.textContent;
+    } else if (child.nodeType === 1) {
+      const tag = child.tagName.toLowerCase();
+      const style = child.getAttribute('style') || '';
+      switch (tag) {
+        case 'strong': case 'b':
+          md += '**' + nodeInlineMd(child) + '**';
+          break;
+        case 'em': case 'i':
+          md += '*' + nodeInlineMd(child) + '*';
+          break;
+        case 'a': {
+          const href = child.getAttribute('href') || '';
+          const text = nodeInlineMd(child);
+          md += (href === text || !text) ? href : '[' + text + '](' + href + ')';
+          break;
+        }
+        case 'span': {
+          const inner = nodeInlineMd(child);
+          if (/font-weight:\s*(bold|700)/.test(style))   md += '**' + inner + '**';
+          else if (/font-style:\s*italic/.test(style))   md += '*' + inner + '*';
+          else                                            md += inner;
+          break;
+        }
+        case 'br':
+          md += '\n';
+          break;
+        default:
+          md += nodeInlineMd(child);
+      }
+    }
+  });
+  return md;
+}
+
+function tableToMdLines(tableEl) {
+  const lines = [];
+  const thead = tableEl.querySelector('thead');
+  const tbody = tableEl.querySelector('tbody') || tableEl;
+
+  if (thead) {
+    const ths = Array.from(thead.querySelectorAll('th'));
+    lines.push('| ' + ths.map(function(th) { return nodeInlineMd(th); }).join(' | ') + ' |');
+    lines.push('| ' + ths.map(function() { return '---'; }).join(' | ') + ' |');
+  }
+  tbody.querySelectorAll('tr').forEach(function(row) {
+    const tds = Array.from(row.querySelectorAll('td'));
+    if (tds.length) {
+      lines.push('| ' + tds.map(function(td) { return nodeInlineMd(td); }).join(' | ') + ' |');
+    }
+  });
+  return lines;
 }
 
 // ── MARKDOWN RENDERER ──────────────────────────────────────
