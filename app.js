@@ -218,8 +218,13 @@ function buildAndAppendCard(idx) {
   editorPane.appendChild(editorLabel);
   editorPane.appendChild(textarea);
 
+  const previewLabel = document.createElement('div');
+  previewLabel.className = 'pane-label';
+  previewLabel.textContent = 'Preview';
+
   const previewWrapper = document.createElement('div');
   previewWrapper.className = 'pane';
+  previewWrapper.appendChild(previewLabel);
   previewWrapper.appendChild(previewPane);
 
   panes.appendChild(editorPane);
@@ -396,7 +401,6 @@ function insertFormat(type) {
   sections[currentIndex].title = extractSectionTitle(ta.value);
   document.getElementById('preview_' + currentIndex).innerHTML = renderMarkdown(ta.value);
   updateHeader();
-  ta.blur();
 }
 
 // ── ADD NEW SECTION ────────────────────────────────────────
