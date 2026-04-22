@@ -428,7 +428,12 @@ body {
   min-width: 0;
 }
 
-.pane-editor { border-right: 1px solid var(--border); }
+.pane-editor {
+  position: absolute;
+  left: -100%;
+  width: 100%;
+  border-right: none;
+}
 
 .pane-label {
   font-size: 0.7rem;
@@ -790,7 +795,6 @@ body {
 /* ── RESPONSIVE ────────────────────────────── */
 @media (max-width: 768px) {
   .flashcard-panes { flex-direction: column; }
-  .pane-editor { border-right: none; border-bottom: 1px solid var(--border); }
   .review-diff { grid-template-columns: 1fr; }
   .review-diff-col + .review-diff-col { border-left: none; border-top: 1px solid var(--border); }
   .editor-header { padding: 0 0.75rem; }
