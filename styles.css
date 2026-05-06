@@ -401,11 +401,6 @@ body {
   display: flex;
   height: 100%;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  /* Promote to its own compositing layer for consistent sub-pixel rendering
-     across Mac (Core Animation) and Windows (DirectComposition / D3D). */
-  will-change: transform;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
 }
 
 .flashcard {
@@ -415,9 +410,6 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  /* Prevent the card itself from collapsing on Windows when scrollbar gutter
-     is reserved inside child panes. */
-  min-height: 0;
 }
 
 .flashcard-panes {
@@ -425,7 +417,6 @@ body {
   flex: 1;
   overflow: hidden;
   gap: 0;
-  min-height: 0;
 }
 
 .pane {
@@ -434,7 +425,6 @@ body {
   flex-direction: column;
   overflow: hidden;
   min-width: 0;
-  min-height: 0;
 }
 
 .pane-editor { border-right: 1px solid var(--border); }
@@ -463,11 +453,6 @@ body {
   outline: none;
   resize: none;
   width: 100%;
-  /* Reserve scrollbar space on Windows so the textarea never shifts width
-     when content grows tall enough to require scrolling. */
-  scrollbar-gutter: stable;
-  /* Prevent double box on Windows high-contrast mode. */
-  box-sizing: border-box;
 }
 
 .pane-preview {
@@ -475,108 +460,9 @@ body {
   padding: 1.5rem 2rem;
   overflow-y: auto;
   line-height: 1.7;
-  /* Match the reserved-gutter behaviour of the textarea so both panes stay
-     the same width regardless of whether a scrollbar is visible. */
-  scrollbar-gutter: stable;
-  box-sizing: border-box;
-}
-
-/* ── CHAPTER BAR ─────────────────────────────── */
-/* Sits above the split panes; shows which topic group the current section
-   belongs to.  Keeps height fixed so layout is identical on all platforms. */
-.flashcard-chapter-bar {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 1.25rem;
-  height: 30px;
-  background: linear-gradient(to right, rgba(37,150,190,0.06), rgba(37,150,190,0.01));
-  border-bottom: 1px solid rgba(37,150,190,0.12);
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--accent);
-  white-space: nowrap;
-  overflow: hidden;
-}
-
-.flashcard-chapter-bar svg {
-  width: 11px;
-  height: 11px;
-  flex-shrink: 0;
-}
-
-/* First section in a new chapter gets a slightly stronger accent to signal
-   the topic boundary to the reader. */
-.flashcard-chapter-bar-new {
-  background: linear-gradient(to right, rgba(37,150,190,0.13), rgba(37,150,190,0.02));
-  border-bottom-color: rgba(37,150,190,0.28);
-}
-
-.chapter-bar-new-badge {
-  margin-left: auto;
-  font-size: 0.62rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: white;
-  background: var(--accent);
-  border-radius: 10px;
-  padding: 0.15rem 0.55rem;
-  flex-shrink: 0;
-}
-
-/* Chapter-header cards (sections whose only heading is an h1) get a centred
-   display so the chapter title is prominent rather than showing as a tiny
-   split-pane edit view. */
-.flashcard-chapter-header .flashcard-panes {
-  background: linear-gradient(160deg, #f0f9fc 0%, var(--white) 60%);
-}
-
-.flashcard-chapter-header .pane-editor {
-  border-right-color: rgba(37,150,190,0.15);
-}
-
-.flashcard-chapter-header .pane-preview {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.flashcard-chapter-header .pane-preview h1 {
-  font-size: 1.5rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  color: var(--accent);
-  margin-bottom: 0.5rem;
-  line-height: 1.2;
-}
-
-/* ── HEADER CHAPTER BREADCRUMB ───────────────── */
-.header-chapter-crumb {
-  color: var(--muted);
-  font-weight: 500;
-}
-
-.header-crumb-sep {
-  color: var(--muted);
-  margin: 0 0.3rem;
-  font-weight: 400;
-  font-size: 0.75rem;
 }
 
 /* Markdown preview styles */
-.pane-preview h1 {
-  font-size: 1.35rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  color: var(--accent);
-  margin-bottom: 1rem;
-  line-height: 1.2;
-}
-
 .pane-preview h2 {
   font-size: 1.2rem;
   font-weight: 700;
@@ -814,7 +700,6 @@ body {
   min-height: 60px;
 }
 
-.review-diff-content h1 { font-size: 1.1rem; font-weight: 800; margin-bottom: 0.5rem; color: var(--accent); }
 .review-diff-content h2 { font-size: 1rem; font-weight: 700; margin-bottom: 0.5rem; border-bottom: 2px solid var(--accent); padding-bottom: 0.3rem; }
 .review-diff-content h3 { font-size: 0.9rem; font-weight: 600; margin: 0.75rem 0 0.3rem; }
 .review-diff-content p { margin-bottom: 0.5rem; }
