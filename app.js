@@ -16,8 +16,13 @@ const STORAGE_FILENAME = 'beri_habs_filename';
 
 // ── INIT ───────────────────────────────────────────────────
 (function init() {
-  const cached   = localStorage.getItem(STORAGE_KEY);
-  const cachedFn = localStorage.getItem(STORAGE_FILENAME);
+  var cached, cachedFn;
+  try {
+    cached   = localStorage.getItem(STORAGE_KEY);
+    cachedFn = localStorage.getItem(STORAGE_FILENAME);
+  } catch (e) {
+    // localStorage blocked by browser policy (common on school/managed devices)
+  }
 
   if (cached) {
     const box = document.getElementById('resume-box');
@@ -31,8 +36,10 @@ const STORAGE_FILENAME = 'beri_habs_filename';
     };
 
     document.getElementById('btn-discard-cache').onclick = function() {
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem(STORAGE_FILENAME);
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(STORAGE_FILENAME);
+      } catch (e) {}
       box.classList.remove('visible');
     };
   }
@@ -513,6 +520,7 @@ function renderMarkdown(md) {
 
     // Paragraph
     let para = '';
+    const paraStart = i;
     while (i < lines.length) {
       const l = lines[i].trim();
       if (!l) break;
@@ -520,6 +528,10 @@ function renderMarkdown(md) {
       para += (para ? ' ' : '') + l;
       i++;
     }
+    // Safety: if no line was consumed (unrecognised pattern fell through every
+    // block check AND immediately broke the paragraph guard), advance past it
+    // rather than looping forever.
+    if (i === paraStart) i++;
     if (para) html += '<p>' + renderInline(para) + '</p>';
   }
 
@@ -582,8 +594,8 @@ function renderInline(text) {
   // **bold** (but not **Source:**  — handled at block level, but let's keep bold working)
   text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
 
-  // *italic* (single asterisk, not double)
-  text = text.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+  // *italic* — bold pass already consumed **, so any remaining * is a single asterisk
+  text = text.replace(/\*([^*\r\n]+)\*/g, '<em>$1</em>');
 
   // [text](url)
   text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
