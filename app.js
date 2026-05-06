@@ -170,26 +170,71 @@ function loadMarkdown(md) {
 }
 
 function parseMarkdownToSections(md) {
-  // Split by lines-that-are-only-dashes (---)
   const rawSections = splitBySeparator(md);
   const result = [];
+  let currentChapter = '';
+  let chapterIdx = -1;
+
   rawSections.forEach(function(raw, i) {
     const trimmed = raw.trim();
     if (!trimmed) return;
     const title = extractSectionTitle(trimmed);
+
+    // A section is a chapter header if it has a # (h1) heading but no ## (h2) headings.
+    // These act as topic dividers between groups of content sections.
+    const lines = trimmed.split('\n');
+    const h1Lines = lines.filter(function(l) {
+      const t = l.trim();
+      return /^#\s/.test(t) && !/^##/.test(t);
+    });
+    const h2Lines = lines.filter(function(l) { return /^##\s/.test(l.trim()); });
+    const isChapterHeader = h1Lines.length > 0 && h2Lines.length === 0;
+
+    if (isChapterHeader) {
+      const m = trimmed.match(/^#\s+(.+)/m);
+      currentChapter = m ? m[1].trim() : '';
+      chapterIdx++;
+    }
+
     result.push({
       id: 'sec_' + i + '_' + Date.now(),
       original: trimmed,
       current: trimmed,
-      title: title
+      title: title,
+      chapter: isChapterHeader ? '' : currentChapter,
+      chapterIdx: chapterIdx,
+      isChapterHeader: isChapterHeader
     });
   });
+
+  // Fallback: if no explicit # chapter headers found, try grouping by leading
+  // number in ## headings (e.g. "## 3. Foo" and "## 3.1 Bar" → Chapter 3).
+  if (!result.some(function(s) { return s.isChapterHeader; })) {
+    applyNumberedChapterGrouping(result);
+  }
+
   return result;
 }
 
+function applyNumberedChapterGrouping(secs) {
+  var lastMajor = null;
+  var chapterIdx = -1;
+  secs.forEach(function(sec) {
+    var m = sec.title.match(/^(\d+)[.\s]/);
+    if (m) {
+      if (m[1] !== lastMajor) {
+        lastMajor = m[1];
+        chapterIdx++;
+      }
+      sec.chapter = 'Chapter ' + m[1];
+      sec.chapterIdx = chapterIdx;
+    }
+  });
+}
+
 function splitBySeparator(md) {
-  // Match --- on its own line (possibly with surrounding whitespace)
-  const lines = md.split('\n');
+  // Normalise CRLF → LF so Windows-authored files parse identically to Mac/Linux files.
+  const lines = md.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
   const chunks = [];
   let current = [];
 
@@ -209,7 +254,6 @@ function splitBySeparator(md) {
 }
 
 function isInsideTable(lines, idx) {
-  // Heuristic: if adjacent lines look like table rows, skip
   const prev = lines[idx - 1] || '';
   const next = lines[idx + 1] || '';
   return /^\|/.test(prev) || /^\|/.test(next);
@@ -217,8 +261,13 @@ function isInsideTable(lines, idx) {
 
 function extractSectionTitle(text) {
   const lines = text.split('\n');
+  // Prefer ## headings; fall back to # headings for chapter-header sections
   for (let i = 0; i < lines.length; i++) {
     const m = lines[i].match(/^##\s+(.+)/);
+    if (m) return m[1].trim();
+  }
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(/^#\s+(.+)/);
     if (m) return m[1].trim();
   }
   return 'Untitled Section';
@@ -251,10 +300,51 @@ function buildAndAppendCard(idx) {
   const sec = sections[idx];
 
   const card = document.createElement('div');
-  card.className = 'flashcard';
+  card.className = sec.isChapterHeader ? 'flashcard flashcard-chapter-header' : 'flashcard';
   card.id = 'card_' + idx;
   card.dataset.idx = String(idx);
 
+  // ── Chapter bar ──────────────────────────────────────────
+  // Show a topic label above the panes whenever the section belongs to a chapter.
+  // If this is the first section of a new chapter, use a more prominent style.
+  if (sec.chapter) {
+    const isFirstInChapter = idx === 0 ||
+      !sections[idx - 1] ||
+      sections[idx - 1].chapterIdx !== sec.chapterIdx;
+
+    const chapterBar = document.createElement('div');
+    chapterBar.className = isFirstInChapter
+      ? 'flashcard-chapter-bar flashcard-chapter-bar-new'
+      : 'flashcard-chapter-bar';
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    svg.innerHTML = '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>';
+
+    const label = document.createElement('span');
+    label.textContent = sec.chapter;
+
+    if (isFirstInChapter) {
+      const badge = document.createElement('span');
+      badge.className = 'chapter-bar-new-badge';
+      badge.textContent = 'New chapter';
+      chapterBar.appendChild(svg);
+      chapterBar.appendChild(label);
+      chapterBar.appendChild(badge);
+    } else {
+      chapterBar.appendChild(svg);
+      chapterBar.appendChild(label);
+    }
+
+    card.appendChild(chapterBar);
+  }
+
+  // ── Panes ────────────────────────────────────────────────
   const panes = document.createElement('div');
   panes.className = 'flashcard-panes';
 
@@ -396,8 +486,24 @@ function cleanupWindow() {
 function updateHeader() {
   const sec = sections[currentIndex];
   if (!sec) return;
-  document.getElementById('header-section-title').textContent = sec.title;
+  const titleEl = document.getElementById('header-section-title');
+  if (sec.chapter) {
+    titleEl.innerHTML =
+      '<span class="header-chapter-crumb">' + escapeHtml(sec.chapter) + '</span>' +
+      '<span class="header-crumb-sep">›</span>' +
+      escapeHtml(sec.title);
+  } else {
+    titleEl.textContent = sec.title;
+  }
   document.getElementById('section-counter').textContent = (currentIndex + 1) + ' / ' + sections.length;
+}
+
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function updateNavButtons() {
@@ -480,11 +586,15 @@ function insertFormat(type) {
 // ── ADD NEW SECTION ────────────────────────────────────────
 function addNewSection() {
   const template = '## New Section\n\n[content here]\n\n**Source:** https://www.habselstree.org.uk/girls/';
+  const currentSec = sections[currentIndex] || {};
   const newSec = {
     id: 'sec_new_' + Date.now(),
     original: '',
     current: template,
-    title: 'New Section'
+    title: 'New Section',
+    chapter: currentSec.chapter || '',
+    chapterIdx: currentSec.chapterIdx != null ? currentSec.chapterIdx : -1,
+    isChapterHeader: false
   };
   sections.push(newSec);
   currentIndex = sections.length - 1; // set before renderEditor so window is correct
@@ -515,6 +625,14 @@ function renderMarkdown(md) {
       continue;
     }
 
+    // ### Heading (must be checked before ## and #)
+    if (/^###\s/.test(trimmed)) {
+      const text = trimmed.replace(/^###\s+/, '');
+      html += '<h3>' + renderInline(text) + '</h3>';
+      i++;
+      continue;
+    }
+
     // ## Heading
     if (/^##\s/.test(trimmed)) {
       const text = trimmed.replace(/^##\s+/, '');
@@ -523,10 +641,10 @@ function renderMarkdown(md) {
       continue;
     }
 
-    // ### Heading
-    if (/^###\s/.test(trimmed)) {
-      const text = trimmed.replace(/^###\s+/, '');
-      html += '<h3>' + renderInline(text) + '</h3>';
+    // # Heading (h1 — chapter headers)
+    if (/^#\s/.test(trimmed)) {
+      const text = trimmed.replace(/^#\s+/, '');
+      html += '<h1>' + renderInline(text) + '</h1>';
       i++;
       continue;
     }
@@ -591,7 +709,7 @@ function renderMarkdown(md) {
     while (i < lines.length) {
       const l = lines[i].trim();
       if (!l) break;
-      if (/^(##|###|>|[-*+]|\d+\.|---|\||\*\*Source:)/.test(l)) break;
+      if (/^(#|##|###|>|[-*+]|\d+\.|---|\||\*\*Source:)/.test(l)) break;
       para += (para ? ' ' : '') + l;
       i++;
     }
