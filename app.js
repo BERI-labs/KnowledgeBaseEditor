@@ -11,8 +11,73 @@ let originalFullMarkdown = '';
 let renderedLo = 0;         // Index of the first card currently in the DOM
 let isNavigating = false;   // Block nav clicks during slide transition
 
-const STORAGE_KEY      = 'beri_habs_md_cache';
-const STORAGE_FILENAME = 'beri_habs_filename';
+const STORAGE_KEY        = 'beri_habs_md_cache';
+const STORAGE_FILENAME   = 'beri_habs_filename';
+const TOUR_COMPLETE_KEY  = 'beri_tour_complete';
+const TOUR_RESUME_KEY    = 'beri_tour_resume_step';
+
+// ── TOUR STEPS ─────────────────────────────────────────────
+const TOUR_STEPS = [
+  {
+    title: 'Welcome to the Beri Knowledge Base Editor',
+    content: 'This tool helps you review and update your school\'s knowledge base content. Follow this short tour to learn the full workflow — it takes less than two minutes!',
+    target: null,
+    position: 'center',
+    screen: 'any'
+  },
+  {
+    title: '1. Upload your .md file',
+    content: 'Drag and drop the markdown file we\'ve provided into this area, or click "browse files" to select it from your computer. Only .md files are accepted.',
+    target: '#drop-zone',
+    position: 'bottom',
+    screen: 'upload',
+    pauseHere: true
+  },
+  {
+    title: '2. Edit section content',
+    content: 'Your file is split into sections shown as cards. The left pane shows the raw Markdown — edit directly here. The right pane shows a live preview that updates as you type.',
+    target: '.flashcard-panes',
+    position: 'top',
+    screen: 'editor'
+  },
+  {
+    title: '3. Format your content',
+    content: 'Use the toolbar to format text: Bold, Italic, Headings (H2, H3), Tables, Bullet and Numbered lists. Select text first, then click a button to wrap it with the correct Markdown.',
+    target: '.editor-toolbar',
+    position: 'bottom',
+    screen: 'editor'
+  },
+  {
+    title: '4. Cite your sources',
+    content: 'Every section must have a source. Click "Source" to insert a **Source:** line, then replace the placeholder URL with a publicly accessible link — for example an Issuu booklet or a page on the school website.',
+    targetQuery: 'button[title="Insert Source line"]',
+    position: 'bottom',
+    screen: 'editor'
+  },
+  {
+    title: '5. Add new sections',
+    content: 'Need to include information not covered by existing sections? Click "+ New Section" to add a blank section at the end of the file. Give it a clear ## heading and cite your source.',
+    targetQuery: '.toolbar-add-section',
+    position: 'bottom',
+    screen: 'editor'
+  },
+  {
+    title: '6. Export your updated file',
+    content: 'When you\'re satisfied with your edits, click "Export .md" to download the updated markdown file to your computer. Keep it handy — you\'ll need to attach it to the email in the next step.',
+    targetQuery: '#btn-export-md',
+    position: 'top',
+    screen: 'editor'
+  },
+  {
+    title: '7. Email your file to Beri',
+    content: 'Finally, click "Email to BERI" to send your updated file to us. A dialog will show the address, a ready-to-use message, and remind you to attach the .md file you just exported.',
+    targetQuery: '#btn-email-beri',
+    position: 'top',
+    screen: 'editor'
+  }
+];
+
+let tourCurrentStep = 0;
 
 // ── INIT ───────────────────────────────────────────────────
 (function init() {
@@ -47,6 +112,7 @@ const STORAGE_FILENAME = 'beri_habs_filename';
   setupDropZone();
   setupFileInput();
   setupKeyboard();
+  initTourCheck();
 })();
 
 // ── FILE HANDLING ──────────────────────────────────────────
@@ -100,6 +166,7 @@ function loadMarkdown(md) {
   updateHeader();
   updateNavButtons();
   document.getElementById('footer-filename').textContent = filename;
+  maybeResumeTour();
 }
 
 function parseMarkdownToSections(md) {
@@ -737,14 +804,31 @@ function exportMarkdown() {
 }
 
 function emailToBeri() {
-  const md = sectionsToMarkdown();
-  const fn = filename || 'knowledge-base';
   const today = new Date().toISOString().split('T')[0];
-  const subject = encodeURIComponent('Habs Girls Knowledge Base Update — ' + (filename || today));
-  const body = encodeURIComponent(md);
-  // mailto body can be large; browsers may truncate — we warn if needed
-  const link = 'mailto:beri.model.ai@gmail.com?subject=' + subject + '&body=' + body;
-  window.location.href = link;
+  const subject = 'Knowledge Base Update — ' + (filename || today);
+  document.getElementById('email-subject-preview').textContent = subject;
+  document.getElementById('email-modal').classList.add('open');
+}
+
+function closeEmailModal() {
+  document.getElementById('email-modal').classList.remove('open');
+}
+
+function copyEmailAddress() {
+  navigator.clipboard.writeText('beri.ai.model@gmail.com').then(function() {
+    showToast('Email address copied!', 'info');
+  }).catch(function() {
+    showToast('beri.ai.model@gmail.com', 'info');
+  });
+}
+
+function openEmailClient() {
+  const today = new Date().toISOString().split('T')[0];
+  const subject = encodeURIComponent('Knowledge Base Update — ' + (filename || today));
+  const body = encodeURIComponent(
+    'Hi Beri team,\n\nPlease find attached my updated knowledge base file. I have reviewed the content and made the necessary edits.\n\nPlease let me know if you need anything else.\n\nBest regards'
+  );
+  window.open('mailto:beri.ai.model@gmail.com?subject=' + subject + '&body=' + body);
 }
 
 function downloadFile(name, content, mime) {
@@ -757,6 +841,186 @@ function downloadFile(name, content, mime) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+// ── TOUR ───────────────────────────────────────────────────
+function initTourCheck() {
+  try {
+    const done = localStorage.getItem(TOUR_COMPLETE_KEY);
+    if (!done) {
+      setTimeout(function() { startTour(0); }, 600);
+    }
+  } catch(e) {}
+}
+
+function maybeResumeTour() {
+  try {
+    const step = localStorage.getItem(TOUR_RESUME_KEY);
+    if (step !== null && !localStorage.getItem(TOUR_COMPLETE_KEY)) {
+      localStorage.removeItem(TOUR_RESUME_KEY);
+      setTimeout(function() { startTour(parseInt(step, 10)); }, 400);
+    }
+  } catch(e) {}
+}
+
+function startTour(fromStep) {
+  // Build dots once
+  const dotsEl = document.getElementById('tour-dots');
+  dotsEl.innerHTML = '';
+  TOUR_STEPS.forEach(function(_, i) {
+    const dot = document.createElement('span');
+    dot.className = 'tour-dot';
+    dot.dataset.step = String(i);
+    dotsEl.appendChild(dot);
+  });
+
+  document.getElementById('tour-overlay').classList.add('active');
+  showTourStep(fromStep);
+}
+
+function showTourStep(stepIdx) {
+  if (stepIdx < 0 || stepIdx >= TOUR_STEPS.length) {
+    endTour();
+    return;
+  }
+
+  tourCurrentStep = stepIdx;
+  const step = TOUR_STEPS[stepIdx];
+
+  // Remove previous spotlight
+  document.querySelectorAll('.tour-highlight').forEach(function(el) {
+    el.classList.remove('tour-highlight');
+  });
+
+  // Update content
+  document.getElementById('tour-step-num').textContent = 'Step ' + (stepIdx + 1) + ' of ' + TOUR_STEPS.length;
+  document.getElementById('tour-title').textContent = step.title;
+  document.getElementById('tour-content').textContent = step.content;
+
+  // Update dots
+  document.querySelectorAll('.tour-dot').forEach(function(dot, i) {
+    dot.classList.toggle('active', i === stepIdx);
+  });
+
+  // Update buttons
+  const prevBtn = document.getElementById('tour-prev');
+  const nextBtn = document.getElementById('tour-next');
+  prevBtn.style.visibility = stepIdx === 0 ? 'hidden' : '';
+  nextBtn.textContent = stepIdx === TOUR_STEPS.length - 1 ? 'Done ✓' : 'Next →';
+
+  // Find target element (only if on the right screen)
+  const targetSelector = step.targetQuery || step.target;
+  const activeScreen = (document.querySelector('.screen.active') || {}).id;
+  const onRightScreen = step.screen === 'any' ||
+    (step.screen === 'upload' && activeScreen === 'upload-screen') ||
+    (step.screen === 'editor' && activeScreen === 'editor-screen');
+
+  let targetEl = null;
+  if (targetSelector && onRightScreen) {
+    targetEl = document.querySelector(targetSelector);
+    if (targetEl) {
+      targetEl.classList.add('tour-highlight');
+      targetEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+
+  positionTourTooltip(targetEl, step.position);
+}
+
+function positionTourTooltip(targetEl, preferredPosition) {
+  const tooltip = document.getElementById('tour-tooltip');
+  tooltip.classList.remove('arrow-top', 'arrow-bottom');
+
+  if (!targetEl) {
+    tooltip.style.top = '50%';
+    tooltip.style.left = '50%';
+    tooltip.style.transform = 'translate(-50%, -50%)';
+    return;
+  }
+
+  tooltip.style.transform = '';
+  const rect = targetEl.getBoundingClientRect();
+  const tw = 340;
+  const margin = 14;
+  const arrowSize = 10;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const tooltipH = tooltip.offsetHeight || 220;
+
+  let top, left, arrowXPct;
+
+  const spaceBelow = vh - rect.bottom - margin - arrowSize;
+  const spaceAbove = rect.top - margin - arrowSize;
+
+  if (preferredPosition === 'bottom' && spaceBelow >= tooltipH) {
+    top = rect.bottom + margin + arrowSize;
+    left = rect.left + rect.width / 2 - tw / 2;
+    tooltip.classList.add('arrow-top');
+  } else if (preferredPosition === 'top' && spaceAbove >= tooltipH) {
+    top = rect.top - tooltipH - margin - arrowSize;
+    left = rect.left + rect.width / 2 - tw / 2;
+    tooltip.classList.add('arrow-bottom');
+  } else if (spaceBelow >= tooltipH) {
+    top = rect.bottom + margin + arrowSize;
+    left = rect.left + rect.width / 2 - tw / 2;
+    tooltip.classList.add('arrow-top');
+  } else {
+    top = Math.max(margin, rect.top - tooltipH - margin - arrowSize);
+    left = rect.left + rect.width / 2 - tw / 2;
+    tooltip.classList.add('arrow-bottom');
+  }
+
+  // Clamp to viewport
+  left = Math.max(margin, Math.min(left, vw - tw - margin));
+  top  = Math.max(margin, Math.min(top,  vh - tooltipH - margin));
+
+  // Position arrow correctly relative to target center within clamped tooltip
+  const targetCenterX = rect.left + rect.width / 2;
+  const arrowX = Math.max(20, Math.min(targetCenterX - left, tw - 20));
+  tooltip.style.setProperty('--arrow-x', arrowX + 'px');
+
+  tooltip.style.top  = top  + 'px';
+  tooltip.style.left = left + 'px';
+}
+
+function tourNext() {
+  const step = TOUR_STEPS[tourCurrentStep];
+  const activeScreen = (document.querySelector('.screen.active') || {}).id;
+
+  // Pause here if on upload screen and this step marks the hand-off to editor
+  if (step.pauseHere && activeScreen === 'upload-screen') {
+    try { localStorage.setItem(TOUR_RESUME_KEY, String(tourCurrentStep + 1)); } catch(e) {}
+    closeTourOverlay();
+    showToast('Upload your file — the tour will continue in the editor.', 'info');
+    return;
+  }
+
+  if (tourCurrentStep >= TOUR_STEPS.length - 1) {
+    endTour();
+  } else {
+    showTourStep(tourCurrentStep + 1);
+  }
+}
+
+function tourPrev() {
+  if (tourCurrentStep > 0) {
+    showTourStep(tourCurrentStep - 1);
+  }
+}
+
+function endTour() {
+  try { localStorage.setItem(TOUR_COMPLETE_KEY, '1'); } catch(e) {}
+  closeTourOverlay();
+  if (tourCurrentStep >= TOUR_STEPS.length - 1) {
+    showToast('Tour complete! Click "Tour" anytime to replay.', 'info');
+  }
+}
+
+function closeTourOverlay() {
+  document.getElementById('tour-overlay').classList.remove('active');
+  document.querySelectorAll('.tour-highlight').forEach(function(el) {
+    el.classList.remove('tour-highlight');
+  });
 }
 
 // ── SOURCE LINE WARNING ─────────────────────────────────────

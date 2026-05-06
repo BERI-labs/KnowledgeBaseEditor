@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Beri Knowledge Base Editor</title>
+  <link rel="icon" href="favicon.png" type="image/png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'" />
@@ -14,11 +15,23 @@
 
 <!-- ══════════════════════════════════════════ UPLOAD SCREEN -->
 <div id="upload-screen" class="screen active">
-  <div class="upload-logo">
-    <div class="upload-logo-mark">
-      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>
+  <div class="upload-top-bar">
+    <div class="upload-logo">
+      <div class="upload-logo-mark">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z"/></svg>
+      </div>
+      <span class="upload-logo-text">Beri · Knowledge Base</span>
     </div>
-    <span class="upload-logo-text">Beri · Knowledge Base</span>
+    <div class="upload-top-right">
+      <a href="https://beri-labs.github.io/" target="_blank" rel="noopener" class="beri-home-link">
+        <img src="favicon.png" alt="Beri" class="beri-home-favicon" />
+        Beri Homepage
+      </a>
+      <button class="btn btn-secondary btn-sm" onclick="startTour(0)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        Tour
+      </button>
+    </div>
   </div>
 
   <div class="upload-card">
@@ -62,9 +75,17 @@
       <span id="header-section-title" class="header-section-title"></span>
     </div>
     <div class="header-center">
-      <span id="section-counter" class="section-counter"></span>
+      <a href="https://beri-labs.github.io/" target="_blank" rel="noopener" class="beri-home-link">
+        <img src="favicon.png" alt="Beri" class="beri-home-favicon" />
+        Beri Homepage
+      </a>
     </div>
     <div class="header-right">
+      <span id="section-counter" class="section-counter"></span>
+      <button class="btn btn-secondary btn-sm" onclick="startTour(0)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        Tour
+      </button>
       <button class="btn btn-secondary btn-sm" id="btn-review">Review Changes</button>
     </div>
   </header>
@@ -118,13 +139,13 @@
   <!-- Footer -->
   <footer class="editor-footer">
     <div class="footer-left">
-      <button class="btn btn-ghost btn-sm" onclick="exportMarkdown()">
+      <button class="btn btn-ghost btn-sm" id="btn-export-md" onclick="exportMarkdown()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
         </svg>
         Export .md
       </button>
-      <button class="btn btn-ghost btn-sm" onclick="emailToBeri()">
+      <button class="btn btn-ghost btn-sm" id="btn-email-beri" onclick="emailToBeri()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
         </svg>
@@ -165,6 +186,75 @@
 
 <!-- Toast container -->
 <div id="toast-container"></div>
+
+<!-- ══════════════════════════════════════════ TOUR OVERLAY -->
+<div id="tour-overlay">
+  <div id="tour-backdrop"></div>
+  <div id="tour-tooltip">
+    <div class="tour-step-indicator" id="tour-step-num">Step 1 of 8</div>
+    <h3 class="tour-title" id="tour-title"></h3>
+    <p class="tour-content" id="tour-content"></p>
+    <div class="tour-actions">
+      <button class="btn btn-ghost btn-sm" id="tour-skip" onclick="endTour()">Skip tour</button>
+      <div class="tour-btn-group">
+        <div class="tour-dots" id="tour-dots"></div>
+        <button class="btn btn-secondary btn-sm" id="tour-prev" onclick="tourPrev()">&#8592; Back</button>
+        <button class="btn btn-primary btn-sm" id="tour-next" onclick="tourNext()">Next &#8594;</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ EMAIL MODAL -->
+<div id="email-modal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Email your changes to Beri</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeEmailModal()">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <div class="email-field">
+        <div class="email-field-label">To</div>
+        <div class="email-field-row">
+          <span class="email-field-value">beri.ai.model@gmail.com</span>
+          <button class="btn btn-sm btn-secondary" onclick="copyEmailAddress()">Copy</button>
+        </div>
+      </div>
+      <div class="email-field">
+        <div class="email-field-label">Subject</div>
+        <div class="email-field-row">
+          <span class="email-field-value" id="email-subject-preview"></span>
+        </div>
+      </div>
+      <div class="email-field">
+        <div class="email-field-label">Message</div>
+        <div class="email-message-body">
+          Hi Beri team,<br><br>
+          Please find attached my updated knowledge base file. I have reviewed the content and made the necessary edits.<br><br>
+          Please let me know if you need anything else.<br><br>
+          Best regards
+        </div>
+      </div>
+      <div class="email-attach-note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex-shrink:0;color:#d97706">
+          <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+        </svg>
+        <span>Attach the <strong>.md file</strong> you exported to this email before sending.</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary btn-sm" onclick="exportMarkdown()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Export .md first
+      </button>
+      <button class="btn btn-primary btn-sm" onclick="openEmailClient()">
+        Open email client &#8594;
+      </button>
+    </div>
+  </div>
+</div>
 
 <script src="app.js"></script>
 </body>
