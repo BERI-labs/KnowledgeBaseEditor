@@ -582,8 +582,8 @@ function renderInline(text) {
   // **bold** (but not **Source:**  — handled at block level, but let's keep bold working)
   text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
 
-  // *italic* (single asterisk, not double)
-  text = text.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '<em>$1</em>');
+  // *italic* — [^*\n]+ avoids ** and multi-line; safe on all V8 versions
+  text = text.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
 
   // [text](url)
   text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
@@ -614,37 +614,46 @@ function openReview() {
 
   const body = document.getElementById('review-body');
   body.innerHTML = '';
-
-  changed.forEach(function(sec) {
-    const card = document.createElement('div');
-    card.className = 'review-section-card';
-
-    const titleEl = document.createElement('div');
-    titleEl.className = 'review-section-title';
-    titleEl.textContent = sec.title;
-    card.appendChild(titleEl);
-
-    const diffEl = document.createElement('div');
-    diffEl.className = 'review-diff';
-
-    const leftCol = buildDiffColumn('Original', sec.original, 'left');
-    const rightCol = buildDiffColumn('Your edits', sec.current, 'right');
-
-    // Mark columns if content changed
-    if (sec.original.trim() && !sec.current.trim()) {
-      leftCol.classList.add('diff-removed');
-      rightCol.querySelector('.review-diff-content').innerHTML = '<span class="diff-empty-note">Removed — no replacement added.</span>';
-    } else {
-      applyLineDiff(leftCol, rightCol, sec.original, sec.current);
-    }
-
-    diffEl.appendChild(leftCol);
-    diffEl.appendChild(rightCol);
-    card.appendChild(diffEl);
-    body.appendChild(card);
-  });
-
   document.getElementById('review-panel').classList.add('open');
+
+  // Render sections in small chunks so the main thread stays responsive
+  var idx = 0;
+  function renderNextChunk() {
+    var end = Math.min(idx + 4, changed.length);
+    while (idx < end) {
+      var sec = changed[idx];
+      var card = document.createElement('div');
+      card.className = 'review-section-card';
+
+      var titleEl = document.createElement('div');
+      titleEl.className = 'review-section-title';
+      titleEl.textContent = sec.title;
+      card.appendChild(titleEl);
+
+      var diffEl = document.createElement('div');
+      diffEl.className = 'review-diff';
+
+      var leftCol = buildDiffColumn('Original', sec.original, 'left');
+      var rightCol = buildDiffColumn('Your edits', sec.current, 'right');
+
+      if (sec.original.trim() && !sec.current.trim()) {
+        leftCol.classList.add('diff-removed');
+        rightCol.querySelector('.review-diff-content').innerHTML = '<span class="diff-empty-note">Removed — no replacement added.</span>';
+      } else {
+        applyLineDiff(leftCol, rightCol, sec.original, sec.current);
+      }
+
+      diffEl.appendChild(leftCol);
+      diffEl.appendChild(rightCol);
+      card.appendChild(diffEl);
+      body.appendChild(card);
+      idx++;
+    }
+    if (idx < changed.length) {
+      setTimeout(renderNextChunk, 0);
+    }
+  }
+  renderNextChunk();
 }
 
 function buildDiffColumn(label, md, side) {
