@@ -170,8 +170,7 @@ function loadMarkdown(md) {
 }
 
 function parseMarkdownToSections(md) {
-  // Split by lines-that-are-only-dashes (---)
-  const rawSections = splitBySeparator(md);
+  const rawSections = splitByHeadings(md);
   const result = [];
   rawSections.forEach(function(raw, i) {
     const trimmed = raw.trim();
@@ -187,38 +186,37 @@ function parseMarkdownToSections(md) {
   return result;
 }
 
-function splitBySeparator(md) {
-  // Match --- on its own line (possibly with surrounding whitespace)
-  const lines = md.split('\n');
+function splitByHeadings(md) {
+  // Normalize CRLF/CR → LF so heading regexes work on Windows-authored files
+  const normalized = md.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const lines = normalized.split('\n');
   const chunks = [];
   let current = [];
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (/^---+\s*$/.test(line.trim()) && !isInsideTable(lines, i)) {
-      if (current.length) {
-        chunks.push(current.join('\n'));
+    if (/^#{1,6}\s/.test(line)) {
+      // New heading: flush the previous section
+      if (current.length > 0) {
+        const text = current.join('\n').trim();
+        if (text) chunks.push(text);
         current = [];
       }
-    } else {
-      current.push(line);
     }
+    current.push(line);
   }
-  if (current.length) chunks.push(current.join('\n'));
+  // Flush the final section
+  if (current.length > 0) {
+    const text = current.join('\n').trim();
+    if (text) chunks.push(text);
+  }
   return chunks;
 }
 
-function isInsideTable(lines, idx) {
-  // Heuristic: if adjacent lines look like table rows, skip
-  const prev = lines[idx - 1] || '';
-  const next = lines[idx + 1] || '';
-  return /^\|/.test(prev) || /^\|/.test(next);
-}
-
 function extractSectionTitle(text) {
-  const lines = text.split('\n');
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
   for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(/^##\s+(.+)/);
+    const m = lines[i].match(/^#{1,6}\s+(.+)/);
     if (m) return m[1].trim();
   }
   return 'Untitled Section';
@@ -497,7 +495,8 @@ function addNewSection() {
 // ── MARKDOWN RENDERER ──────────────────────────────────────
 function renderMarkdown(md) {
   if (!md) return '';
-  const lines = md.split('\n');
+  // Normalize CRLF/CR → LF so all regex patterns work on Windows-authored files
+  const lines = md.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
   let html = '';
   let i = 0;
 
@@ -515,18 +514,11 @@ function renderMarkdown(md) {
       continue;
     }
 
-    // ## Heading
-    if (/^##\s/.test(trimmed)) {
-      const text = trimmed.replace(/^##\s+/, '');
-      html += '<h2>' + renderInline(text) + '</h2>';
-      i++;
-      continue;
-    }
-
-    // ### Heading
-    if (/^###\s/.test(trimmed)) {
-      const text = trimmed.replace(/^###\s+/, '');
-      html += '<h3>' + renderInline(text) + '</h3>';
+    // # through ###### headings
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      html += '<h' + level + '>' + renderInline(headingMatch[2]) + '</h' + level + '>';
       i++;
       continue;
     }
@@ -591,7 +583,7 @@ function renderMarkdown(md) {
     while (i < lines.length) {
       const l = lines[i].trim();
       if (!l) break;
-      if (/^(##|###|>|[-*+]|\d+\.|---|\||\*\*Source:)/.test(l)) break;
+      if (/^(#{1,6}\s|>|[-*+]\s|\d+\.\s|---+$|\||\*\*Source:)/.test(l)) break;
       para += (para ? ' ' : '') + l;
       i++;
     }
@@ -787,13 +779,8 @@ document.getElementById('btn-review').onclick = openReview;
 // ── SECTIONS → MARKDOWN ────────────────────────────────────
 function sectionsToMarkdown() {
   return sections.map(function(s) {
-    const text = s.current.trim();
-    // Warn if no Source line
-    if (!/\*\*Source:\*\*/.test(text)) {
-      // toast handled in addNewSection save path
-    }
-    return text;
-  }).join('\n\n---\n\n');
+    return s.current.trim();
+  }).join('\n\n');
 }
 
 // ── SAVE & EXPORT ──────────────────────────────────────────
