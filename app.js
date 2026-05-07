@@ -27,7 +27,7 @@ const TOUR_STEPS = [
     screen: 'any'
   },
   {
-    title: '1. Upload your .md file',
+    title: 'Upload your .md file',
     content: 'Drag and drop the markdown file we\'ve provided into this area, or click "browse files" to select it from your computer. Only .md files are accepted.',
     target: '#drop-zone',
     position: 'bottom',
@@ -35,49 +35,49 @@ const TOUR_STEPS = [
     pauseHere: true
   },
   {
-    title: '2. Edit section content',
+    title: 'Edit section content',
     content: 'Your file is split into sections shown as cards. The left pane shows the raw Markdown — edit directly here. The right pane shows a live preview that updates as you type.',
     target: '.flashcard-panes',
     position: 'top',
     screen: 'editor'
   },
   {
-    title: '3. Format your content',
+    title: 'Format your content',
     content: 'Use the toolbar to format text: Bold, Italic, Headings (H2, H3), Tables, Bullet and Numbered lists. Select text first, then click a button to wrap it with the correct Markdown.',
     target: '.editor-toolbar',
     position: 'bottom',
     screen: 'editor'
   },
   {
-    title: '4. Cite your sources',
+    title: 'Cite your sources',
     content: 'Every section must have a source. Click "Source" to insert a **Source:** line, then replace the placeholder URL with a publicly accessible link — for example an Issuu booklet or a page on the school website.',
     targetQuery: 'button[title="Insert Source line"]',
     position: 'bottom',
     screen: 'editor'
   },
   {
-    title: '5. Add new sections',
-    content: 'Need to include information not covered by existing sections? Click "+ New Section" to add a blank section at the end of the file. Give it a clear ## heading and cite your source.',
+    title: 'Add or delete sections',
+    content: 'Need to include information not covered by existing sections? Click "+ New Section" to add a blank section. To remove a section, click "Delete Section" — you\'ll be asked to confirm before anything is removed.',
     targetQuery: '.toolbar-add-section',
     position: 'bottom',
     screen: 'editor'
   },
   {
-    title: '6. Table of Contents',
+    title: 'Table of Contents',
     content: 'Click "Contents" to see all sections in one place — a table showing each heading and which ones you\'ve edited. Click any row to jump straight to that section.',
     targetQuery: '#btn-toc',
     position: 'bottom',
     screen: 'editor'
   },
   {
-    title: '7. Export your updated file',
+    title: 'Export your updated file',
     content: 'When you\'re satisfied with your edits, click "Export .md". You\'ll be taken to the review screen first so you can confirm your changes before the file downloads.',
     targetQuery: '#btn-export-md',
     position: 'top',
     screen: 'editor'
   },
   {
-    title: '8. Email your file to Beri',
+    title: 'Email your file to Beri',
     content: 'Finally, click "Email to BERI". The review screen opens first — once you confirm, a dialog will show the address, a ready-to-use message, and remind you to attach the exported file.',
     targetQuery: '#btn-email-beri',
     position: 'top',
@@ -498,6 +498,41 @@ function addNewSection() {
   updateHeader();
   updateNavButtons();
   showToast('New section added', 'info');
+}
+
+// ── DELETE SECTION ─────────────────────────────────────────
+function openDeleteModal() {
+  if (!sections.length) return;
+  const sec = sections[currentIndex];
+  const titleEl = document.getElementById('delete-preview-title');
+  const snippetEl = document.getElementById('delete-preview-snippet');
+
+  const titleLine = (sec.current || '').split('\n').find(function(l) { return /^#{1,6}\s/.test(l); });
+  titleEl.textContent = titleLine ? titleLine.replace(/^#{1,6}\s+/, '') : (sec.title || 'Untitled');
+
+  const bodyLines = (sec.current || '').split('\n').filter(function(l) { return !/^#{1,6}\s/.test(l) && l.trim(); });
+  snippetEl.textContent = bodyLines.slice(0, 3).join(' ').slice(0, 200) || '(no content)';
+
+  document.getElementById('delete-section-modal').classList.add('open');
+}
+
+function closeDeleteModal() {
+  document.getElementById('delete-section-modal').classList.remove('open');
+}
+
+function confirmDeleteSection() {
+  if (sections.length <= 1) {
+    showToast('Cannot delete the only remaining section', 'error');
+    closeDeleteModal();
+    return;
+  }
+  const removed = sections.splice(currentIndex, 1)[0];
+  if (currentIndex >= sections.length) currentIndex = sections.length - 1;
+  closeDeleteModal();
+  renderEditor();
+  updateHeader();
+  updateNavButtons();
+  showToast('Section "' + (removed.title || 'Untitled') + '" deleted', 'info');
 }
 
 // ── MARKDOWN RENDERER ──────────────────────────────────────

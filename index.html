@@ -126,6 +126,7 @@
     <button class="toolbar-btn" title="Insert Source line" onclick="insertFormat('source')" style="color:var(--accent);font-weight:600;">Source</button>
     <button class="toolbar-btn" title="Insert divider (---)" onclick="insertFormat('divider')">&#8212;&#8212;</button>
     <button class="toolbar-add-section" onclick="addNewSection()">+ New Section</button>
+    <button class="toolbar-delete-section" onclick="openDeleteModal()" id="btn-delete-section">&#128465; Delete Section</button>
   </div>
 
   <!-- Flashcard area -->
@@ -216,6 +217,27 @@
         <button class="btn btn-secondary btn-sm" id="tour-prev" onclick="tourPrev()">&#8592; Back</button>
         <button class="btn btn-primary btn-sm" id="tour-next" onclick="tourNext()">Next &#8594;</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ DELETE SECTION MODAL -->
+<div id="delete-section-modal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Delete this section?</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeDeleteModal()">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <p class="delete-modal-warning">This will permanently remove the section from your file. This action cannot be undone.</p>
+      <div class="delete-section-preview">
+        <div class="delete-section-preview-title" id="delete-preview-title"></div>
+        <div class="delete-section-preview-snippet" id="delete-preview-snippet"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary btn-sm" onclick="closeDeleteModal()">Cancel</button>
+      <button class="btn btn-danger btn-sm" onclick="confirmDeleteSection()">Delete section</button>
     </div>
   </div>
 </div>
