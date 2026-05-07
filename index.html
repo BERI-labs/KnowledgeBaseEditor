@@ -82,6 +82,10 @@
     </div>
     <div class="header-right">
       <span id="section-counter" class="section-counter"></span>
+      <button class="btn btn-secondary btn-sm" id="btn-toc" onclick="openToc()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        Contents
+      </button>
       <button class="btn btn-secondary btn-sm" onclick="startTour(0)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
         Tour
@@ -139,13 +143,13 @@
   <!-- Footer -->
   <footer class="editor-footer">
     <div class="footer-left">
-      <button class="btn btn-ghost btn-sm" id="btn-export-md" onclick="exportMarkdown()">
+      <button class="btn btn-outline-accent btn-sm" id="btn-export-md" onclick="exportMarkdown()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
         </svg>
         Export .md
       </button>
-      <button class="btn btn-ghost btn-sm" id="btn-email-beri" onclick="emailToBeri()">
+      <button class="btn btn-outline-accent btn-sm" id="btn-email-beri" onclick="emailToBeri()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
         </svg>
@@ -179,8 +183,19 @@
     <button class="btn btn-danger btn-sm" onclick="discardAllChanges()">Discard all changes</button>
     <div class="review-footer-right">
       <button class="btn btn-secondary btn-sm" onclick="closeReview()">Back to editing</button>
-      <button class="btn btn-primary btn-sm" onclick="confirmSave()">Confirm &amp; save</button>
+      <button class="btn btn-primary btn-sm" id="btn-review-confirm" onclick="confirmSave()">Confirm &amp; save</button>
     </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ TOC PANEL -->
+<div id="toc-panel" class="toc-overlay">
+  <div class="toc-box">
+    <div class="toc-header">
+      <h2>Table of Contents</h2>
+      <button class="btn btn-ghost btn-sm" onclick="closeToc()">&#10005; Close</button>
+    </div>
+    <div class="toc-scroll" id="toc-body"></div>
   </div>
 </div>
 
@@ -243,7 +258,7 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary btn-sm" onclick="exportMarkdown()">
+      <button class="btn btn-secondary btn-sm" onclick="doExportMarkdown()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px">
           <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
         </svg>
