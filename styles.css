@@ -397,6 +397,63 @@ body {
 }
 .toolbar-add-section:hover { background: #f0f9fc; }
 
+.toolbar-delete-section {
+  border: 1px solid #dc2626;
+  background: var(--white);
+  color: #dc2626;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: background 0.1s;
+  flex-shrink: 0;
+  margin-left: 6px;
+}
+.toolbar-delete-section:hover { background: #fef2f2; }
+
+.btn-danger {
+  background: #dc2626;
+  color: #fff;
+  border: 1px solid #dc2626;
+}
+.btn-danger:hover { background: #b91c1c; border-color: #b91c1c; }
+
+.delete-modal-warning {
+  font-size: 0.855rem;
+  color: var(--muted);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.delete-section-preview {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.delete-section-preview-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.delete-section-preview-snippet {
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Flashcard area */
 .flashcard-area {
   flex: 1;
