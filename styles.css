@@ -230,6 +230,13 @@ body {
 }
 .btn-danger:hover:not(:disabled) { background: #fef2f2; border-color: #dc2626; }
 
+.btn-outline-accent {
+  background: var(--white);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.btn-outline-accent:hover:not(:disabled) { background: #f0f9fc; border-color: var(--accent-dark); color: var(--accent-dark); }
+
 .btn-sm {
   font-size: 0.8rem;
   padding: 0.4rem 0.75rem;
@@ -1067,6 +1074,107 @@ body {
   padding: 0.85rem 1.5rem;
   border-top: 1px solid var(--border);
   background: var(--bg-subtle);
+}
+
+/* ── TABLE OF CONTENTS ─────────────────────── */
+.toc-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.toc-overlay.open {
+  display: flex;
+}
+
+.toc-box {
+  background: var(--white);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 72vh;
+  box-shadow: 0 12px 48px rgba(0,0,0,0.18);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.toc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.toc-header h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.toc-scroll {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.toc-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.toc-table tr {
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.toc-table tr:hover { background: var(--bg-hover); }
+
+.toc-table tr.toc-current { background: #f0f9fc; }
+
+.toc-num {
+  width: 42px;
+  text-align: right;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-weight: 500;
+  border-bottom: 1px solid var(--border);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.toc-title {
+  padding: 0.55rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+
+.toc-table tr.toc-current .toc-title { color: var(--accent); }
+
+.toc-status {
+  width: 36px;
+  text-align: center;
+  padding: 0.55rem 1rem 0.55rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.toc-edited-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  vertical-align: middle;
 }
 
 /* ── RESPONSIVE ────────────────────────────── */

@@ -10,6 +10,7 @@ let filename = '';
 let originalFullMarkdown = '';
 let renderedLo = 0;         // Index of the first card currently in the DOM
 let isNavigating = false;   // Block nav clicks during slide transition
+let reviewPendingAction = null; // 'export' | 'email' | null
 
 const STORAGE_KEY        = 'beri_habs_md_cache';
 const STORAGE_FILENAME   = 'beri_habs_filename';
@@ -62,15 +63,22 @@ const TOUR_STEPS = [
     screen: 'editor'
   },
   {
-    title: '6. Export your updated file',
-    content: 'When you\'re satisfied with your edits, click "Export .md" to download the updated markdown file to your computer. Keep it handy — you\'ll need to attach it to the email in the next step.',
+    title: '6. Table of Contents',
+    content: 'Click "Contents" to see all sections in one place — a table showing each heading and which ones you\'ve edited. Click any row to jump straight to that section.',
+    targetQuery: '#btn-toc',
+    position: 'bottom',
+    screen: 'editor'
+  },
+  {
+    title: '7. Export your updated file',
+    content: 'When you\'re satisfied with your edits, click "Export .md". You\'ll be taken to the review screen first so you can confirm your changes before the file downloads.',
     targetQuery: '#btn-export-md',
     position: 'top',
     screen: 'editor'
   },
   {
-    title: '7. Email your file to Beri',
-    content: 'Finally, click "Email to BERI" to send your updated file to us. A dialog will show the address, a ready-to-use message, and remind you to attach the .md file you just exported.',
+    title: '8. Email your file to Beri',
+    content: 'Finally, click "Email to BERI". The review screen opens first — once you confirm, a dialog will show the address, a ready-to-use message, and remind you to attach the exported file.',
     targetQuery: '#btn-email-beri',
     position: 'top',
     screen: 'editor'
@@ -669,22 +677,89 @@ function renderInline(text) {
   return text;
 }
 
+// ── TABLE OF CONTENTS ─────────────────────────────────────
+function openToc() {
+  const body = document.getElementById('toc-body');
+  body.innerHTML = '';
+
+  const table = document.createElement('table');
+  table.className = 'toc-table';
+
+  sections.forEach(function(sec, idx) {
+    const row = document.createElement('tr');
+    if (idx === currentIndex) row.className = 'toc-current';
+
+    const numCell = document.createElement('td');
+    numCell.className = 'toc-num';
+    numCell.textContent = idx + 1;
+
+    const titleCell = document.createElement('td');
+    titleCell.className = 'toc-title';
+    titleCell.textContent = sec.title;
+
+    const statusCell = document.createElement('td');
+    statusCell.className = 'toc-status';
+    if (sec.current.trim() !== sec.original.trim()) {
+      const dot = document.createElement('span');
+      dot.className = 'toc-edited-dot';
+      dot.title = 'Edited';
+      statusCell.appendChild(dot);
+    }
+
+    row.appendChild(numCell);
+    row.appendChild(titleCell);
+    row.appendChild(statusCell);
+
+    row.onclick = function() {
+      navigateToIndex(idx);
+      closeToc();
+    };
+
+    table.appendChild(row);
+  });
+
+  body.appendChild(table);
+  document.getElementById('toc-panel').classList.add('open');
+}
+
+function closeToc() {
+  document.getElementById('toc-panel').classList.remove('open');
+}
+
+function navigateToIndex(idx) {
+  if (idx < 0 || idx >= sections.length) return;
+  currentIndex = idx;
+  renderEditor();
+  updateHeader();
+  updateNavButtons();
+}
+
 // ── REVIEW PANEL ──────────────────────────────────────────
-function openReview() {
+function openReview(action) {
+  if (action && typeof action !== 'string') action = null;
+  reviewPendingAction = action || null;
+
   const changed = sections.filter(function(s) {
     return s.current.trim() !== s.original.trim();
   });
 
-  if (!changed.length) {
+  // If opened from Review Changes button and no changes, show toast instead
+  if (!action && !changed.length) {
     showToast('No changes to review yet.', 'info');
     return;
   }
 
   document.getElementById('review-filename').textContent = filename || 'knowledge-base.md';
-  document.getElementById('review-badge').textContent = changed.length + ' section' + (changed.length === 1 ? '' : 's') + ' changed';
+  document.getElementById('review-badge').textContent = changed.length
+    ? changed.length + ' section' + (changed.length === 1 ? '' : 's') + ' changed'
+    : 'No changes';
 
   const body = document.getElementById('review-body');
   body.innerHTML = '';
+
+  if (!changed.length) {
+    body.innerHTML = '<div class="review-empty">No changes to review — your file matches the original.</div>';
+  }
 
   changed.forEach(function(sec) {
     const card = document.createElement('div');
@@ -714,6 +789,18 @@ function openReview() {
     card.appendChild(diffEl);
     body.appendChild(card);
   });
+
+  // Update confirm button label based on action
+  const confirmBtn = document.getElementById('btn-review-confirm');
+  if (confirmBtn) {
+    if (action === 'export') {
+      confirmBtn.textContent = 'Confirm & Export .md';
+    } else if (action === 'email') {
+      confirmBtn.textContent = 'Confirm & Email to BERI';
+    } else {
+      confirmBtn.innerHTML = 'Confirm &amp; save';
+    }
+  }
 
   document.getElementById('review-panel').classList.add('open');
 }
@@ -750,6 +837,9 @@ function applyLineDiff(leftCol, rightCol, origMd, currMd) {
 }
 
 function closeReview() {
+  reviewPendingAction = null;
+  const confirmBtn = document.getElementById('btn-review-confirm');
+  if (confirmBtn) confirmBtn.innerHTML = 'Confirm &amp; save';
   document.getElementById('review-panel').classList.remove('open');
 }
 
@@ -769,12 +859,23 @@ function confirmSave() {
   } catch (err) {
     showToast('Could not save — storage quota exceeded.', 'warn');
   }
-  closeReview();
-  showToast('Saved to browser ✓', 'amber');
+
+  const action = reviewPendingAction;
+  closeReview(); // also clears reviewPendingAction
+
+  if (action === 'export') {
+    doExportMarkdown();
+    showToast('Saved & exported ✓', 'amber');
+  } else if (action === 'email') {
+    showToast('Saved to browser ✓', 'amber');
+    doEmailToBeri();
+  } else {
+    showToast('Saved to browser ✓', 'amber');
+  }
 }
 
 // Wire up review button
-document.getElementById('btn-review').onclick = openReview;
+document.getElementById('btn-review').onclick = function() { openReview(); };
 
 // ── SECTIONS → MARKDOWN ────────────────────────────────────
 function sectionsToMarkdown() {
@@ -785,12 +886,20 @@ function sectionsToMarkdown() {
 
 // ── SAVE & EXPORT ──────────────────────────────────────────
 function exportMarkdown() {
+  openReview('export');
+}
+
+function doExportMarkdown() {
   const md = sectionsToMarkdown();
   const fn = filename || 'habs-knowledge-base-export.md';
   downloadFile(fn, md, 'text/markdown');
 }
 
 function emailToBeri() {
+  openReview('email');
+}
+
+function doEmailToBeri() {
   const today = new Date().toISOString().split('T')[0];
   const subject = 'Knowledge Base Update — ' + (filename || today);
   document.getElementById('email-subject-preview').textContent = subject;
