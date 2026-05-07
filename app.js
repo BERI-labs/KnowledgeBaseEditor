@@ -503,6 +503,10 @@ function addNewSection() {
 // ── DELETE SECTION ─────────────────────────────────────────
 function openDeleteModal() {
   if (!sections.length) return;
+  if (currentIndex === 0) {
+    showToast('The first section cannot be deleted', 'error');
+    return;
+  }
   const sec = sections[currentIndex];
   const titleEl = document.getElementById('delete-preview-title');
   const snippetEl = document.getElementById('delete-preview-snippet');
