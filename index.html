@@ -121,19 +121,30 @@
     <div class="toolbar-divider"></div>
     <button class="toolbar-btn" title="Insert Source line" onclick="insertFormat('source')" style="color:var(--accent);font-weight:600;">Source</button>
     <button class="toolbar-btn" title="Insert divider (---)" onclick="insertFormat('divider')">&#8212;&#8212;</button>
-    <button class="toolbar-add-section" onclick="addNewSection()">+ New Section</button>
+    <div class="toolbar-section-actions">
+      <button class="toolbar-add-section" onclick="addNewSection()">+ New Section</button>
+      <button class="toolbar-delete-section" onclick="deleteSection()">Delete Section</button>
+    </div>
   </div>
 
-  <!-- Flashcard area -->
-  <div class="flashcard-area" id="flashcard-area">
-    <div class="flashcard-track" id="flashcard-track"></div>
-  </div>
-
-  <!-- Navigation -->
-  <div class="flashcard-nav">
-    <button class="btn btn-secondary btn-sm" id="btn-prev" onclick="navigate(-1)">&#8592; Previous</button>
-    <span style="font-size:0.8rem;color:var(--muted);" id="nav-hint">Use ← → arrow keys to navigate</span>
-    <button class="btn btn-secondary btn-sm" id="btn-next" onclick="navigate(1)">Next &#8594;</button>
+  <!-- Editor body: TOC sidebar + main content -->
+  <div class="editor-body">
+    <nav class="toc-sidebar" id="toc-sidebar">
+      <div class="toc-header">Contents</div>
+      <ol class="toc-list" id="toc-list"></ol>
+    </nav>
+    <div class="editor-main">
+      <!-- Flashcard area -->
+      <div class="flashcard-area" id="flashcard-area">
+        <div class="flashcard-track" id="flashcard-track"></div>
+      </div>
+      <!-- Navigation -->
+      <div class="flashcard-nav">
+        <button class="btn btn-secondary btn-sm" id="btn-prev" onclick="navigate(-1)">&#8592; Previous</button>
+        <span class="nav-hint">Click <strong>Next</strong> / <strong>Previous</strong> or press <kbd>&#8592;</kbd> <kbd>&#8594;</kbd> arrow keys to switch flashcards</span>
+        <button class="btn btn-secondary btn-sm" id="btn-next" onclick="navigate(1)">Next &#8594;</button>
+      </div>
+    </div>
   </div>
 
   <!-- Footer -->
@@ -252,6 +263,24 @@
       <button class="btn btn-primary btn-sm" onclick="openEmailClient()">
         Open email client &#8594;
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════ DELETE MODAL -->
+<div id="delete-modal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Delete this section?</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeDeleteModal()">&#10005;</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:0.875rem;color:var(--muted);margin-bottom:0.75rem;">This will permanently remove the following section from your file:</p>
+      <div class="delete-preview" id="delete-preview"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary btn-sm" onclick="closeDeleteModal()">Cancel</button>
+      <button class="btn btn-danger btn-sm" onclick="confirmDeleteSection()">Delete section</button>
     </div>
   </div>
 </div>

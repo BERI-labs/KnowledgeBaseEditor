@@ -372,12 +372,18 @@ body {
 .toolbar-btn-bold { font-weight: 700; }
 .toolbar-btn-italic { font-style: italic; }
 
-.toolbar-add-section {
+.toolbar-section-actions {
   margin-left: auto;
-  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.toolbar-add-section {
+  border: 1px solid var(--accent);
   background: var(--white);
   color: var(--accent);
-  border-color: var(--accent);
   height: 30px;
   padding: 0 10px;
   border-radius: 4px;
@@ -389,6 +395,22 @@ body {
   flex-shrink: 0;
 }
 .toolbar-add-section:hover { background: #f0f9fc; }
+
+.toolbar-delete-section {
+  border: 1px solid #fca5a5;
+  background: var(--white);
+  color: #dc2626;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font);
+  transition: background 0.1s;
+  flex-shrink: 0;
+}
+.toolbar-delete-section:hover { background: #fef2f2; }
 
 /* Flashcard area */
 .flashcard-area {
@@ -1069,6 +1091,139 @@ body {
   background: var(--bg-subtle);
 }
 
+/* ── EDITOR BODY LAYOUT ────────────────────── */
+.editor-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.editor-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* ── TABLE OF CONTENTS SIDEBAR ─────────────── */
+.toc-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  background: var(--bg-subtle);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.toc-header {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--bg-subtle);
+}
+
+.toc-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.4rem 0;
+  list-style: none;
+  margin: 0;
+}
+
+.toc-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding: 0.32rem 0.75rem 0.32rem 0.85rem;
+  cursor: pointer;
+  font-size: 0.775rem;
+  line-height: 1.4;
+  color: var(--text);
+  border-left: 2px solid transparent;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  user-select: none;
+}
+
+.toc-item:hover { background: var(--bg-hover); }
+
+.toc-item.active {
+  background: #e4f3fa;
+  border-left-color: var(--accent);
+  color: var(--accent-dark);
+  font-weight: 600;
+}
+
+.toc-num {
+  color: var(--muted);
+  font-size: 0.68rem;
+  flex-shrink: 0;
+  min-width: 1.6rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.toc-item.active .toc-num { color: var(--accent); }
+
+.toc-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* ── NAV HINT ──────────────────────────────── */
+.nav-hint {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.nav-hint strong { color: var(--text); font-weight: 600; }
+
+kbd {
+  display: inline-block;
+  font-family: var(--font);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.1rem 0.35rem;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  background: var(--bg-subtle);
+  color: var(--text);
+  line-height: 1.4;
+}
+
+/* ── DELETE SECTION PREVIEW ────────────────── */
+.delete-preview {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.85rem 1rem;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.delete-preview-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 0.35rem;
+}
+
+.delete-preview-snippet {
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
 /* ── RESPONSIVE ────────────────────────────── */
 @media (max-width: 768px) {
   .flashcard-panes { flex-direction: column; }
@@ -1079,4 +1234,6 @@ body {
   .editor-toolbar { padding: 0 0.75rem; }
   .flashcard-nav { padding: 0.5rem 0.75rem; }
   .editor-footer { padding: 0.5rem 0.75rem; }
+  .toc-sidebar { display: none; }
+  .nav-hint { display: none; }
 }

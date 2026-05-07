@@ -34,9 +34,9 @@ const TOUR_STEPS = [
     pauseHere: true
   },
   {
-    title: '2. Edit section content',
-    content: 'Your file is split into sections shown as cards. The left pane shows the raw Markdown — edit directly here. The right pane shows a live preview that updates as you type.',
-    target: '.flashcard-panes',
+    title: '2. Navigate &amp; edit flashcards',
+    content: 'Each heading in your file becomes its own flashcard. Click the Next → button (or press the → arrow key) to move to the next card; click ← Previous (or press ←) to go back. Edit the raw Markdown in the left pane — the right pane shows a live preview as you type.',
+    target: '.flashcard-nav',
     position: 'top',
     screen: 'editor'
   },
@@ -162,6 +162,7 @@ function loadMarkdown(md) {
   sections = parseMarkdownToSections(md);
   currentIndex = 0;
   renderEditor();
+  renderTOC();
   showScreen('editor-screen');
   updateHeader();
   updateNavButtons();
@@ -281,6 +282,15 @@ function buildAndAppendCard(idx) {
     sections[idx].current = textarea.value;
     sections[idx].title = extractSectionTitle(textarea.value);
     if (idx === currentIndex) updateHeader();
+    // Keep TOC title in sync while typing
+    const tocItem = document.querySelector('#toc-list .toc-item:nth-child(' + (idx + 1) + ')');
+    if (tocItem) {
+      const titleEl = tocItem.querySelector('.toc-title');
+      if (titleEl) {
+        titleEl.textContent = sections[idx].title;
+        titleEl.title = sections[idx].title;
+      }
+    }
     clearTimeout(previewTimer);
     previewTimer = setTimeout(function() {
       previewPane.innerHTML = renderMarkdown(textarea.value);
@@ -349,6 +359,7 @@ function navigate(dir) {
 
   updateHeader();
   updateNavButtons();
+  updateTOCActive();
 
   // After the slide completes, trim the DOM back to the ±1 window
   let settled = false;
@@ -487,9 +498,96 @@ function addNewSection() {
   sections.push(newSec);
   currentIndex = sections.length - 1; // set before renderEditor so window is correct
   renderEditor();
+  renderTOC();
   updateHeader();
   updateNavButtons();
   showToast('New section added', 'info');
+}
+
+// ── TABLE OF CONTENTS ──────────────────────────────────────
+function renderTOC() {
+  const list = document.getElementById('toc-list');
+  if (!list) return;
+  list.innerHTML = '';
+  sections.forEach(function(sec, i) {
+    const li = document.createElement('li');
+    li.className = 'toc-item' + (i === currentIndex ? ' active' : '');
+    li.onclick = function() { navigateTo(i); };
+
+    const num = document.createElement('span');
+    num.className = 'toc-num';
+    num.textContent = (i + 1) + '.';
+
+    const titleEl = document.createElement('span');
+    titleEl.className = 'toc-title';
+    titleEl.textContent = sec.title;
+    titleEl.title = sec.title;
+
+    li.appendChild(num);
+    li.appendChild(titleEl);
+    list.appendChild(li);
+  });
+}
+
+function updateTOCActive() {
+  const items = document.querySelectorAll('#toc-list .toc-item');
+  items.forEach(function(item, i) {
+    item.classList.toggle('active', i === currentIndex);
+  });
+  const activeItem = document.querySelector('#toc-list .toc-item.active');
+  if (activeItem) activeItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+function navigateTo(idx) {
+  if (idx === currentIndex || idx < 0 || idx >= sections.length) return;
+  currentIndex = idx;
+  renderEditor();
+  updateHeader();
+  updateNavButtons();
+  updateTOCActive();
+}
+
+// ── DELETE SECTION ─────────────────────────────────────────
+function deleteSection() {
+  if (sections.length <= 1) {
+    showToast('Cannot delete the only remaining section.', 'warn');
+    return;
+  }
+  const sec = sections[currentIndex];
+  const previewEl = document.getElementById('delete-preview');
+  previewEl.innerHTML = '';
+
+  const titleEl = document.createElement('div');
+  titleEl.className = 'delete-preview-title';
+  titleEl.textContent = sec.title;
+  previewEl.appendChild(titleEl);
+
+  const lines = sec.current.replace(/\r\n/g, '\n').split('\n');
+  const bodyLines = lines.filter(function(l) { return !/^#{1,6}\s/.test(l.trim()) && l.trim(); });
+  const snippet = bodyLines.join(' ').trim().substring(0, 220);
+  if (snippet) {
+    const snippetEl = document.createElement('div');
+    snippetEl.className = 'delete-preview-snippet';
+    snippetEl.textContent = snippet + (snippet.length >= 220 ? '…' : '');
+    previewEl.appendChild(snippetEl);
+  }
+
+  document.getElementById('delete-modal').classList.add('open');
+}
+
+function closeDeleteModal() {
+  document.getElementById('delete-modal').classList.remove('open');
+}
+
+function confirmDeleteSection() {
+  closeDeleteModal();
+  sections.splice(currentIndex, 1);
+  if (currentIndex >= sections.length) currentIndex = sections.length - 1;
+  renderEditor();
+  renderTOC();
+  updateHeader();
+  updateNavButtons();
+  showToast('Section deleted.', 'warn');
 }
 
 // ── MARKDOWN RENDERER ──────────────────────────────────────
